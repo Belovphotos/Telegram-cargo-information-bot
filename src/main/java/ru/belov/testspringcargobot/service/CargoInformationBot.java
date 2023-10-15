@@ -22,14 +22,11 @@ import java.util.List;
 @Component
 @Slf4j
 public class CargoInformationBot extends TelegramLongPollingBot {
-
-
     static final String HELP_TEXT = EmojiParser.parseToUnicode("Мы - быстро растущая компания доставки товаров из Китая!\n\n" +
             ":cn:");
     static final String CONTACT_TEXT = "Наш менеджер по работе с клиентами ответит " +
             "на все интересущие Вас вопросы! t.me/peachbaker";
     static final String ERROR_MESSAGE = "Sorry command is unavailable";
-
     private final BotConfig botConfig;
 
     public CargoInformationBot(BotConfig botConfig) {
@@ -44,12 +41,10 @@ public class CargoInformationBot extends TelegramLongPollingBot {
             System.out.println(e.getMessage());
         }
     }
-
     @Override
     public String getBotToken() {
         return botConfig.getToken();
     }
-
     @Override
     public void onUpdateReceived(Update update) {
         if (update.hasMessage() && update.getMessage().hasText()) {
@@ -103,13 +98,10 @@ public class CargoInformationBot extends TelegramLongPollingBot {
     public String getBotUsername() {
         return botConfig.getBotName();
     }
-
     private void sendHelloMessage(long chatId, String name) {
         String response = "Hi, " + name + "! Nice to meet you!";
         sendBothMessages(chatId, response);
     }
-
-
     private void sendErrorMessage(long chatId) {
         SendMessage sendMessage = fillMessageAndChatId(chatId, ERROR_MESSAGE);
         try {
@@ -133,54 +125,46 @@ public class CargoInformationBot extends TelegramLongPollingBot {
 
     private InlineKeyboardMarkup getMainMenu() {
 
-        List<List<InlineKeyboardButton>> buttons = new ArrayList<>();
-        List<InlineKeyboardButton> keyboardButtonsFloorOne = new ArrayList<>();
-        List<InlineKeyboardButton> keyboardButtonsFloorTwo = new ArrayList<>();
+        InlineKeyboardButton faqButton = InlineKeyboardButton.builder()
+                .text("FAQ")
+                .callbackData("/faq")
+                .build();
 
-        InlineKeyboardButton faqButton = new InlineKeyboardButton();
-        faqButton.setText("FAQ");
-        faqButton.setCallbackData("/faq");
+        InlineKeyboardButton contactButton = InlineKeyboardButton.builder()
+                .text("Связаться с нами")
+                .callbackData("/contactus")
+                .build();
 
-        InlineKeyboardButton contactButton = new InlineKeyboardButton();
-        contactButton.setText("Связаться с нами");
-        contactButton.setCallbackData("/contactus");
+        InlineKeyboardButton questionsButton = InlineKeyboardButton.builder()
+                .text("Часто-задаваемые вопросы")
+                .callbackData("/questions")
+                .build();
 
-        InlineKeyboardButton questionsButton = new InlineKeyboardButton();
-        questionsButton.setText("Часто-задаваемые вопросы");
-        questionsButton.setCallbackData("/questions");
+        List<InlineKeyboardButton> keyboardButtonsFloorOne = List.of(faqButton, contactButton);
+        List<InlineKeyboardButton> keyboardButtonsFloorTwo = List.of(questionsButton);
 
-        keyboardButtonsFloorOne.add(faqButton);
-        keyboardButtonsFloorOne.add(contactButton);
-
-        keyboardButtonsFloorTwo.add(questionsButton);
-
-        buttons.add(keyboardButtonsFloorOne);
-        buttons.add(keyboardButtonsFloorTwo);
-
-        return new InlineKeyboardMarkup(buttons);
+        return InlineKeyboardMarkup.builder()
+                .keyboard(List.of(keyboardButtonsFloorOne, keyboardButtonsFloorTwo))
+                .build();
     }
 
-    private SendMessage fillMessageAndChatId(long chatId, String textToSend) {
-        SendMessage sendMessage = new SendMessage();
-        sendMessage.setChatId(String.valueOf(chatId));
-        sendMessage.setText(textToSend);
-        return sendMessage;
+    private SendMessage fillMessageAndChatId(long chatId, String text) {
+        return SendMessage.builder()
+                .chatId(String.valueOf(chatId))
+                .text(text)
+                .build();
     }
-
     private InlineKeyboardMarkup createBackButton() {
 
-        InlineKeyboardMarkup backKeyBoard = new InlineKeyboardMarkup();
-        List<List<InlineKeyboardButton>> firstFloorButtons = new ArrayList<>();
-        List<InlineKeyboardButton> keyboardButtons = new ArrayList<>();
+        InlineKeyboardButton backButton = InlineKeyboardButton.builder()
+                .text("Назад")
+                .callbackData("/back")
+                .build();
 
-        InlineKeyboardButton backButton = new InlineKeyboardButton();
-        backButton.setText("Назад");
-        backButton.setCallbackData("/back");
+        List<InlineKeyboardButton> keyboardButtons = List.of(backButton);
+        return InlineKeyboardMarkup.builder()
+                .keyboard(List.of(keyboardButtons))
+                .build();
 
-        keyboardButtons.add(backButton);
-
-        firstFloorButtons.add(keyboardButtons);
-        backKeyBoard.setKeyboard(firstFloorButtons);
-        return backKeyBoard;
     }
 }
