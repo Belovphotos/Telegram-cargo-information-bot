@@ -2,6 +2,7 @@ package ru.belov.testspringcargobot.service;
 
 import com.vdurmont.emoji.EmojiParser;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
@@ -14,23 +15,33 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMa
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import ru.belov.testspringcargobot.config.BotConfig;
+import ru.belov.testspringcargobot.domain.MenuController;
 import ru.belov.testspringcargobot.domain.Questions;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 @Component
 @Slf4j
 public class CargoInformationBot extends TelegramLongPollingBot {
-    static final String HELP_TEXT = EmojiParser.parseToUnicode("Мы - быстро растущая компания доставки товаров из Китая!\n\n" +
-            ":cn:");
-    static final String CONTACT_TEXT = "Наш менеджер по работе с клиентами ответит " +
-            "на все интересущие Вас вопросы! t.me/peachbaker";
+    static final String CONTACT_TEXT = "src/main/resources/contactus.txt";
+    static final String HELP_TEXT_FILE_PATH = "src/main/resources/help.txt";
+    static final String DELIVERY_TEXT = "src/main/resources/delivery.txt";
     static final String ERROR_MESSAGE = "Sorry command is unavailable";
     private final BotConfig botConfig;
 
+    private final String helpText;
+    private final String faqText;
+    private final String deliveryText;
+
     public CargoInformationBot(BotConfig botConfig) {
         this.botConfig = botConfig;
+        this.helpText = EmojiParser.parseToUnicode(readTextFromFile(HELP_TEXT_FILE_PATH));
+        this.faqText = EmojiParser.parseToUnicode(readTextFromFile(CONTACT_TEXT));
+        this.deliveryText = EmojiParser.parseToUnicode(readTextFromFile(DELIVERY_TEXT));
 
         List<BotCommand> commands = new ArrayList<>();
         commands.add(new BotCommand("/start", "Запустить бота"));
@@ -41,6 +52,20 @@ public class CargoInformationBot extends TelegramLongPollingBot {
             System.out.println(e.getMessage());
         }
     }
+
+    private String readTextFromFile(String path) {
+        StringBuilder content = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(new FileReader(path))){
+            String line;
+            while ((line = reader.readLine()) != null){
+                content.append(line).append("\n");
+            }
+        } catch (IOException ioe){
+            ioe.printStackTrace();
+        }
+        return content.toString();
+    }
+
     @Override
     public String getBotToken() {
         return botConfig.getToken();
@@ -68,20 +93,30 @@ public class CargoInformationBot extends TelegramLongPollingBot {
 
             switch (callBackData) {
                 case "/faq":
-                    message.setText(HELP_TEXT);
+                    message.setText(helpText);
                     message.setReplyMarkup(createBackButton());
+                    message.setParseMode("HTML");
                     break;
                 case "/contactus":
-                    message.setText(CONTACT_TEXT);
+                    message.setText(faqText);
                     message.setReplyMarkup(createBackButton());
                     break;
                 case "/questions":
-                    message.setText("Выберите тему");
+                    message.setText("Выберите тему вопросов");
                     message.setReplyMarkup(Questions.questionsMenu());
                     break;
-                default:
+                case "/payment":
+                    message.setText("Оплата производится наличными");
+                    message.setReplyMarkup(Questions.questionsBackButton(callBackData));
+                    break;
+                case "/delivery":
+                    message.setText(deliveryText);
+                    message.setReplyMarkup(Questions.questionsBackButton(callBackData));
+                    message.setParseMode("HTML");
+                    break;
+                case "/back" :
                     message.setText("Выберите пункт");
-                    message.setReplyMarkup(getMainMenu());
+                    message.setReplyMarkup(MenuController.getMainMenu());
                     break;
             }
             message.setChatId(String.valueOf(chatId));
@@ -112,7 +147,7 @@ public class CargoInformationBot extends TelegramLongPollingBot {
     }
 
     private void sendBothMessages(long chatId, String textToSend) {
-        InlineKeyboardMarkup mainMenu = getMainMenu();
+        InlineKeyboardMarkup mainMenu = MenuController.getMainMenu();
         SendMessage sendMessage = fillMessageAndChatId(chatId, textToSend);
         sendMessage.setReplyMarkup(mainMenu);
         try {
@@ -120,32 +155,6 @@ public class CargoInformationBot extends TelegramLongPollingBot {
         } catch (TelegramApiException e) {
             e.printStackTrace();
         }
-    }
-
-
-    private InlineKeyboardMarkup getMainMenu() {
-
-        InlineKeyboardButton faqButton = InlineKeyboardButton.builder()
-                .text("FAQ")
-                .callbackData("/faq")
-                .build();
-
-        InlineKeyboardButton contactButton = InlineKeyboardButton.builder()
-                .text("Связаться с нами")
-                .callbackData("/contactus")
-                .build();
-
-        InlineKeyboardButton questionsButton = InlineKeyboardButton.builder()
-                .text("Часто-задаваемые вопросы")
-                .callbackData("/questions")
-                .build();
-
-        List<InlineKeyboardButton> keyboardButtonsFloorOne = List.of(faqButton, contactButton);
-        List<InlineKeyboardButton> keyboardButtonsFloorTwo = List.of(questionsButton);
-
-        return InlineKeyboardMarkup.builder()
-                .keyboard(List.of(keyboardButtonsFloorOne, keyboardButtonsFloorTwo))
-                .build();
     }
 
     private SendMessage fillMessageAndChatId(long chatId, String text) {
