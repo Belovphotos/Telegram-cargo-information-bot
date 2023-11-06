@@ -2,7 +2,6 @@ package ru.belov.testspringcargobot.service;
 
 import com.vdurmont.emoji.EmojiParser;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
@@ -15,8 +14,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMa
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import ru.belov.testspringcargobot.config.BotConfig;
-import ru.belov.testspringcargobot.domain.MenuController;
-import ru.belov.testspringcargobot.domain.Questions;
+import ru.belov.testspringcargobot.controller.MenuController;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -27,21 +25,14 @@ import java.util.List;
 @Component
 @Slf4j
 public class CargoInformationBot extends TelegramLongPollingBot {
-    static final String CONTACT_TEXT = "src/main/resources/contactus.txt";
-    static final String HELP_TEXT_FILE_PATH = "src/main/resources/help.txt";
-    static final String DELIVERY_TEXT = "src/main/resources/delivery.txt";
-    static final String ERROR_MESSAGE = "Sorry command is unavailable";
+
+    private final MenuController menuController;
     private final BotConfig botConfig;
 
-    private final String helpText;
-    private final String faqText;
-    private final String deliveryText;
 
-    public CargoInformationBot(BotConfig botConfig) {
+    public CargoInformationBot(BotConfig botConfig, MenuController menuController) {
         this.botConfig = botConfig;
-        this.helpText = EmojiParser.parseToUnicode(readTextFromFile(HELP_TEXT_FILE_PATH));
-        this.faqText = EmojiParser.parseToUnicode(readTextFromFile(CONTACT_TEXT));
-        this.deliveryText = EmojiParser.parseToUnicode(readTextFromFile(DELIVERY_TEXT));
+        this.menuController = menuController;
 
         List<BotCommand> commands = new ArrayList<>();
         commands.add(new BotCommand("/start", "Запустить бота"));
@@ -49,19 +40,20 @@ public class CargoInformationBot extends TelegramLongPollingBot {
         try {
             this.execute(new SetMyCommands(commands, new BotCommandScopeDefault(), null));
         } catch (TelegramApiException e) {
-            System.out.println(e.getMessage());
+            log.error("Failed to set bot commands", e);
         }
+
     }
 
     private String readTextFromFile(String path) {
         StringBuilder content = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(new FileReader(path))){
+        try (BufferedReader reader = new BufferedReader(new FileReader(path))) {
             String line;
-            while ((line = reader.readLine()) != null){
+            while ((line = reader.readLine()) != null) {
                 content.append(line).append("\n");
             }
-        } catch (IOException ioe){
-            ioe.printStackTrace();
+        } catch (IOException ioe) {
+            log.error("Failed to read text from file: " + path, ioe);
         }
         return content.toString();
     }
@@ -93,30 +85,36 @@ public class CargoInformationBot extends TelegramLongPollingBot {
 
             switch (callBackData) {
                 case "/faq":
-                    message.setText(helpText);
+                    message.setText(EmojiParser.parseToUnicode(readTextFromFile(botConfig.getFaqTextPath())));
                     message.setReplyMarkup(createBackButton());
                     message.setParseMode("HTML");
                     break;
                 case "/contactus":
-                    message.setText(faqText);
+                    message.setText(EmojiParser.parseToUnicode(readTextFromFile(botConfig.getContactTextPath())));
                     message.setReplyMarkup(createBackButton());
                     break;
                 case "/questions":
                     message.setText("Выберите тему вопросов");
-                    message.setReplyMarkup(Questions.questionsMenu());
+                    message.setReplyMarkup(menuController.questionsMenu());
+                    break;
+                case "/orders":
+                    message.setText(EmojiParser.parseToUnicode(readTextFromFile(botConfig.getOrdersTextPath())));
+                    message.setReplyMarkup(menuController.questionsBackButton(callBackData));
+                    message.setParseMode("HTML");
                     break;
                 case "/payment":
-                    message.setText("Оплата производится наличными");
-                    message.setReplyMarkup(Questions.questionsBackButton(callBackData));
+                    message.setText(EmojiParser.parseToUnicode(readTextFromFile(botConfig.getPaymentTextPath())));
+                    message.setReplyMarkup(menuController.questionsBackButton(callBackData));
+                    message.setParseMode("HTML");
                     break;
                 case "/delivery":
-                    message.setText(deliveryText);
-                    message.setReplyMarkup(Questions.questionsBackButton(callBackData));
+                    message.setText(EmojiParser.parseToUnicode(readTextFromFile(botConfig.getDeliveryTextPath())));
+                    message.setReplyMarkup(menuController.questionsBackButton(callBackData));
                     message.setParseMode("HTML");
                     break;
                 case "/back" :
                     message.setText("Выберите пункт");
-                    message.setReplyMarkup(MenuController.getMainMenu());
+                    message.setReplyMarkup(menuController.getMainMenu());
                     break;
             }
             message.setChatId(String.valueOf(chatId));
@@ -138,7 +136,7 @@ public class CargoInformationBot extends TelegramLongPollingBot {
         sendBothMessages(chatId, response);
     }
     private void sendErrorMessage(long chatId) {
-        SendMessage sendMessage = fillMessageAndChatId(chatId, ERROR_MESSAGE);
+        SendMessage sendMessage = fillMessageAndChatId(chatId, "Sorry, wrong command");
         try {
             execute(sendMessage);
         } catch (TelegramApiException e) {
@@ -147,7 +145,7 @@ public class CargoInformationBot extends TelegramLongPollingBot {
     }
 
     private void sendBothMessages(long chatId, String textToSend) {
-        InlineKeyboardMarkup mainMenu = MenuController.getMainMenu();
+        InlineKeyboardMarkup mainMenu = menuController.getMainMenu();
         SendMessage sendMessage = fillMessageAndChatId(chatId, textToSend);
         sendMessage.setReplyMarkup(mainMenu);
         try {

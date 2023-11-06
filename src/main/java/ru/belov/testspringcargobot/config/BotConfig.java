@@ -7,7 +7,7 @@ import org.springframework.context.annotation.PropertySource;
 
 @Configuration
 @Data
-@PropertySource("/application.properties")
+@PropertySource("classpath:application.properties")
 public class BotConfig {
 
     @Value("${bot.name}")
@@ -15,4 +15,19 @@ public class BotConfig {
 
     @Value("${bot.token}")
     String token;
+
+    @Value("${faq.text.path}")
+    String faqTextPath;
+
+    @Value("${contact.text.path}")
+    String contactTextPath;
+
+    @Value("${delivery.text.path}")
+    String deliveryTextPath;
+
+    @Value("${orders.text.path}")
+    String ordersTextPath;
+
+    @Value("${payment.text.path}")
+    String paymentTextPath;
 }
